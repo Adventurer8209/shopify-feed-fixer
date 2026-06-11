@@ -303,3 +303,77 @@ async def fix_supplier_feed(url: str = Query(...)):
 async def dummy_supplier_csv():
     csv_content = """sku,title,price,availability\n00123-A,Premium T-Shirt,"15,50 €",In Stock\n00124-B,Blue Coffee Mug,$ 9.99,sold_out\n,Broken Item Without SKU,0,\n00789-X,Wireless Headphones,"1.250,00 €",available"""
     return PlainTextResponse(content=csv_content, media_type="text/csv")
+
+@app.get("/privacy", response_class=HTMLResponse, tags=["Legal"])
+async def privacy_policy():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Privacy Policy | FeedFixer</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+        <style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
+    </head>
+    <body class="bg-slate-50 text-slate-900 py-10 px-6">
+        <div class="max-w-3xl mx-auto bg-white p-10 rounded-2xl shadow-sm border border-slate-200">
+            <a href="/" class="text-blue-600 font-bold text-sm mb-8 inline-block hover:underline">&larr; Back to Home</a>
+            <h1 class="text-3xl font-extrabold mb-6">Privacy Policy</h1>
+            <p class="text-sm text-slate-500 mb-8">Last updated: June 2026</p>
+            <div class="space-y-6 text-slate-700 leading-relaxed">
+                <h2 class="text-xl font-bold text-slate-900">1. Information We Collect</h2>
+                <p>When you install the FeedFixer app ("the App"), we automatically access certain types of information from your Shopify account necessary for the App to function properly. This includes basic store information and product inventory data strictly for the purpose of formatting your feeds.</p>
+                
+                <h2 class="text-xl font-bold text-slate-900">2. How We Use Your Information</h2>
+                <p>We use the data collected strictly to provide the FeedFixer service. We process your supplier CSV links dynamically in memory. We do not permanently store your inventory data, product descriptions, or supplier URLs on our databases.</p>
+                
+                <h2 class="text-xl font-bold text-slate-900">3. Information Sharing</h2>
+                <p>We do not sell, rent, or trade your personal or store information to third parties. Data is only shared with Shopify APIs as required to synchronize your inventory.</p>
+                
+                <h2 class="text-xl font-bold text-slate-900">4. Contact Us</h2>
+                <p>If you have questions regarding this Privacy Policy, please contact us at support@feedfixer.com.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+@app.get("/terms", response_class=HTMLResponse, tags=["Legal"])
+async def terms_of_service():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Terms of Service | FeedFixer</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+        <style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
+    </head>
+    <body class="bg-slate-50 text-slate-900 py-10 px-6">
+        <div class="max-w-3xl mx-auto bg-white p-10 rounded-2xl shadow-sm border border-slate-200">
+            <a href="/" class="text-blue-600 font-bold text-sm mb-8 inline-block hover:underline">&larr; Back to Home</a>
+            <h1 class="text-3xl font-extrabold mb-6">Terms of Service</h1>
+            <p class="text-sm text-slate-500 mb-8">Last updated: June 2026</p>
+            <div class="space-y-6 text-slate-700 leading-relaxed">
+                <h2 class="text-xl font-bold text-slate-900">1. Acceptance of Terms</h2>
+                <p>By installing and using the FeedFixer app, you agree to be bound by these Terms of Service. If you do not agree, please do not use the service.</p>
+                
+                <h2 class="text-xl font-bold text-slate-900">2. Service Description</h2>
+                <p>FeedFixer provides a tool to format and synchronize supplier CSV feeds for e-commerce platforms. The service is provided "as is" and we reserve the right to modify or discontinue features at any time.</p>
+                
+                <h2 class="text-xl font-bold text-slate-900">3. User Responsibilities</h2>
+                <p>You are responsible for ensuring you have the legal right to use the supplier feeds you connect to FeedFixer. You agree not to use the service for any illegal or unauthorized purpose.</p>
+                
+                <h2 class="text-xl font-bold text-slate-900">4. Limitation of Liability</h2>
+                <p>In no event shall FeedFixer be liable for any direct, indirect, incidental, or consequential damages, including loss of profits or data, arising from your use of the App.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)

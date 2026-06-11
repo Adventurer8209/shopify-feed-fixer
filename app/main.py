@@ -153,10 +153,10 @@ async def web_interface():
 
         <!-- ПОДВАЛ (FOOTER) -->
         <footer class="border-t border-slate-200 bg-white pt-12 pb-16 text-center">
-            <div class="flex flex-wrap justify-center gap-6 md:gap-10 mb-6 text-sm font-semibold text-slate-500">
+            <div class="flex flex-wrap justify-center items-center gap-6 md:gap-10 mb-6 text-sm font-semibold text-slate-500">
                 <a href="/terms" class="hover:text-blue-600 transition">Terms of Service</a>
                 <a href="/privacy" class="hover:text-blue-600 transition">Privacy Policy</a>
-                <a href="mailto:support@feedfixer.com" class="hover:text-blue-600 transition">Contact Support</a>
+                <a href="mailto:feedfixer.support@gmail.com" class="hover:text-blue-600 transition">Email Support</a>
             </div>
             <p class="text-slate-400 text-sm">&copy; 2026 FeedFixer. Built with care for E-commerce.</p>
         </footer>

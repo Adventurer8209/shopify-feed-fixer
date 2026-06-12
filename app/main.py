@@ -333,7 +333,7 @@ async def privacy_policy():
                 <p>We do not sell, rent, or trade your personal or store information to third parties. Data is only shared with Shopify APIs as required to synchronize your inventory.</p>
                 
                 <h2 class="text-xl font-bold text-slate-900">4. Contact Us</h2>
-                <p>If you have questions regarding this Privacy Policy, please contact us at support@feedfixer.com.</p>
+                <p>If you have questions regarding this Privacy Policy, please contact us at feedfixer.support@gmail.com.</p>
             </div>
         </div>
     </body>

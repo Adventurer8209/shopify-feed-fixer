@@ -1,11 +1,52 @@
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
-from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse, RedirectResponse
 from app.models import GoogleShoppingProduct
 import httpx
 import pandas as pd
 import io
+import os
 
 app = FastAPI(title="Shopify Feed Fixer API")
+
+# Достаем ключи, которые мы прописали в Render
+SHOPIFY_CLIENT_ID = os.getenv("SHOPIFY_CLIENT_ID")
+SHOPIFY_CLIENT_SECRET = os.getenv("SHOPIFY_CLIENT_SECRET")
+APP_URL = "https://shopify-feed-fixer.onrender.com"
+SCOPES = "read_inventory,read_products"
+
+@app.get("/auth", tags=["Shopify Auth"])
+async def shopify_auth(shop: str = Query(...)):
+    """
+    Шаг 1: Shopify перенаправляет мерчанта сюда.
+    Мы формируем ссылку с нашим Client ID и правами доступа,
+    а затем отправляем пользователя обратно в Shopify для подтверждения.
+    """
+    if not shop.endswith(".myshopify.com"):
+        raise HTTPException(status_code=400, detail="Invalid shop domain")
+        
+    redirect_uri = f"{APP_URL}/auth/callback"
+    install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_CLIENT_ID}&scope={SCOPES}&redirect_uri={redirect_uri}"
+    
+    return RedirectResponse(url=install_url)
+
+@app.get("/auth/callback", tags=["Shopify Auth"])
+async def shopify_callback(shop: str = Query(...), code: str = Query(...), hmac: str = Query(...)):
+    """
+    Шаг 2: Пользователь нажал "Install" в Shopify.
+    Shopify возвращает его сюда с временным кодом (code).
+    Здесь должна быть логика проверки HMAC и обмена code на постоянный токен.
+    Пока мы просто выводим заглушку об успехе.
+    """
+    html_success = f"""
+    <html>
+        <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+            <h1 style="color: #10b981;">Успех! 🎉</h1>
+            <p>Приложение FeedFixer успешно подключено к магазину <b>{shop}</b>.</p>
+            <p>В будущем здесь будет панель управления приложением для мерчанта.</p>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_success)
 
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 async def web_interface():

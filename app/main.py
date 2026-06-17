@@ -32,21 +32,38 @@ async def shopify_auth(shop: str = Query(...)):
 @app.get("/auth/callback", tags=["Shopify Auth"])
 async def shopify_callback(shop: str = Query(...), code: str = Query(...), hmac: str = Query(...)):
     """
-    Шаг 2: Пользователь нажал "Install" в Shopify.
-    Shopify возвращает его сюда с временным кодом (code).
-    Здесь должна быть логика проверки HMAC и обмена code на постоянный токен.
-    Пока мы просто выводим заглушку об успехе.
+    Шаг 2: Меняем временный code на постоянный access_token
     """
-    html_success = f"""
-    <html>
-        <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
-            <h1 style="color: #10b981;">Успех! 🎉</h1>
-            <p>Приложение FeedFixer успешно подключено к магазину <b>{shop}</b>.</p>
-            <p>В будущем здесь будет панель управления приложением для мерчанта.</p>
-        </body>
-    </html>
-    """
-    return HTMLResponse(content=html_success)
+    token_url = f"https://{shop}/admin/oauth/access_token"
+    payload = {
+        "client_id": SHOPIFY_CLIENT_ID,
+        "client_secret": SHOPIFY_CLIENT_SECRET,
+        "code": code
+    }
+    
+    # Отправляем запрос в Shopify для получения токена
+    async with httpx.AsyncClient() as client:
+        response = await client.post(token_url, json=payload)
+        
+    if response.status_code == 200:
+        access_token = response.json().get("access_token")
+        
+        # ВРЕМЕННО: просто выводим токен в логи Render (позже прикрутим базу данных)
+        print(f"!!! УСПЕХ !!! Получен токен для магазина {shop}: {access_token}")
+        
+        html_success = f"""
+        <html>
+            <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+                <h1 style="color: #10b981;">Успех! 🎉</h1>
+                <p>Приложение FeedFixer успешно подключено к магазину <b>{shop}</b>.</p>
+                <p style="color: #64748b; font-size: 14px;">Постоянный токен доступа успешно получен и сохранен в логах!</p>
+            </body>
+        </html>
+        """
+        return HTMLResponse(content=html_success)
+    else:
+        # Если что-то пошло не так (например, код уже просрочен)
+        return HTMLResponse(content=f"<h1>Ошибка авторизации: {response.text}</h1>", status_code=400)
 
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 async def web_interface():

@@ -435,3 +435,33 @@ async def terms_of_service():
     </html>
     """
     return HTMLResponse(content=html_content)
+
+@app.get("/test-products", tags=["Test"])
+async def test_products():
+    """
+    Тестовый эндпоинт для проверки связи с Shopify.
+    Скачивает список товаров из тестового магазина по нашему токену.
+    """
+    shop = "feedfixer-test-1.myshopify.com"
+    token = "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"
+    
+    # Используем стабильную версию API Shopify
+    url = f"https://{shop}/admin/api/2024-04/products.json"
+    headers = {
+        "X-Shopify-Access-Token": token,
+        "Content-Type": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+        
+    if response.status_code == 200:
+        products = response.json().get("products", [])
+        result = []
+        for p in products:
+            title = p.get("title")
+            price = p.get("variants", [{}])[0].get("price", "0.00")
+            result.append({"title": title, "price": price})
+        return {"status": "success", "products_count": len(result), "items": result}
+    else:
+        return {"status": "error", "code": response.status_code, "details": response.text}

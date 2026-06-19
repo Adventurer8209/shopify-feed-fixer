@@ -5,6 +5,7 @@ import httpx
 import pandas as pd
 import io
 import os
+import json
 
 app = FastAPI(title="Shopify Feed Fixer API")
 
@@ -29,10 +30,25 @@ async def shopify_auth(shop: str = Query(...)):
     
     return RedirectResponse(url=install_url)
 
+def save_shop_token(shop: str, token: str):
+    """Сохраняет токен магазина в локальный файл-базу данных"""
+    file_path = "stores.json"
+    data = {}
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                data = json.load(f)
+        except:
+            pass
+    data[shop] = token
+    with open(file_path, "w") as f:
+        json.dump(data, f, indent=4)
+
 @app.get("/auth/callback", tags=["Shopify Auth"])
 async def shopify_callback(shop: str = Query(...), code: str = Query(...), hmac: str = Query(...)):
     """
-    Шаг 2: Меняем временный code на постоянный access_token
+    Шаг 2: Получаем постоянный токен, сохраняем его 
+    и сразу отправляем клиента на экран оплаты с 10-дневным триалом.
     """
     token_url = f"https://{shop}/admin/oauth/access_token"
     payload = {
@@ -42,29 +58,61 @@ async def shopify_callback(shop: str = Query(...), code: str = Query(...), hmac:
         "expiring": 1
     }
     
-    # Отправляем запрос в Shopify для получения токена
     async with httpx.AsyncClient() as client:
         response = await client.post(token_url, json=payload)
         
-    if response.status_code == 200:
-        access_token = response.json().get("access_token")
-        
-        # ВРЕМЕННО: просто выводим токен в логи Render (позже прикрутим базу данных)
-        print(f"!!! УСПЕХ !!! Получен токен для магазина {shop}: {access_token}")
-        
-        html_success = f"""
-        <html>
-            <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
-                <h1 style="color: #10b981;">Успех! 🎉</h1>
-                <p>Приложение FeedFixer успешно подключено к магазину <b>{shop}</b>.</p>
-                <p style="color: #64748b; font-size: 14px;">Постоянный токен доступа успешно получен и сохранен в логах!</p>
-            </body>
-        </html>
-        """
-        return HTMLResponse(content=html_success)
-    else:
-        # Если что-то пошло не так (например, код уже просрочен)
+    if response.status_code != 200:
         return HTMLResponse(content=f"<h1>Ошибка авторизации: {response.text}</h1>", status_code=400)
+        
+    access_token = response.json().get("access_token")
+    
+    # 1. Запоминаем токен этого магазина
+    save_shop_token(shop, access_token)
+    
+    # 2. Создаем подписку в Shopify ($29.99/мес) с пробным периодом 10 дней
+    billing_url = f"https://{shop}/admin/api/2024-04/recurring_application_charges.json"
+    billing_payload = {
+        "recurring_application_charge": {
+            "name": "FeedFixer Pro Plan",
+            "price": 29.99,
+            "return_url": f"{APP_URL}/billing/callback?shop={shop}",
+            "trial_days": 10,
+            "test": True  # Флаг тестирования
+        }
+    }
+    
+    async with httpx.AsyncClient() as client:
+        billing_res = await client.post(
+            billing_url, 
+            json=billing_payload, 
+            headers={"X-Shopify-Access-Token": access_token}
+        )
+        
+    if billing_res.status_code == 201:
+        confirmation_url = billing_res.json()["recurring_application_charge"]["confirmation_url"]
+        return RedirectResponse(url=confirmation_url)
+    else:
+        return HTMLResponse(content="<h1>Ошибка запуска оплаты</h1>", status_code=400)
+
+@app.get("/billing/callback", tags=["Shopify Auth"])
+async def billing_callback(shop: str, charge_id: str = Query(None)):
+    """
+    Шаг 3: Сюда Shopify возвращает клиента после того, как он согласился на 10 дней триала.
+    """
+    html_content = f"""
+    <html>
+    <head><title>FeedFixer — Успешная активация</title></head>
+    <body style="font-family: Arial, sans-serif; text-align: center; padding-top: 80px; background-color: #f6f6f7;">
+        <div style="background: white; padding: 40px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <h1 style="color: #008060;">🎉 Приложение успешно активировано!</h1>
+            <p>Магазин <strong>{shop}</strong> успешно подключен к системе.</p>
+            <p>Ваш <strong>10-дневный пробный период</strong> начался. Оплата спишется только по его окончании.</p>
+            <a href="{APP_URL}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #008060; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Перейти в панель FeedFixer</a>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 async def web_interface():

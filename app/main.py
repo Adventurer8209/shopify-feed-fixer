@@ -444,7 +444,7 @@ async def test_products():
     Скачивает список товаров из тестового магазина по нашему токену.
     """
     shop = "feedfixer-test-1.myshopify.com"
-    token = "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"
+    token = "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"
     
     # Используем стабильную версию API Shopify
     url = f"https://{shop}/admin/api/2024-04/products.json"

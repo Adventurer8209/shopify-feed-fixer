@@ -35,10 +35,11 @@ async def shopify_callback(shop: str = Query(...), code: str = Query(...), hmac:
     Шаг 2: Меняем временный code на постоянный access_token
     """
     token_url = f"https://{shop}/admin/oauth/access_token"
-    payload = {
+   payload = {
         "client_id": SHOPIFY_CLIENT_ID,
         "client_secret": SHOPIFY_CLIENT_SECRET,
-        "code": code
+        "code": code,
+        "expiring": 1
     }
     
     # Отправляем запрос в Shopify для получения токена

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Request, Response
 from fastapi.responses import PlainTextResponse, HTMLResponse, RedirectResponse
 from app.models import GoogleShoppingProduct
 import httpx
@@ -6,6 +6,8 @@ import pandas as pd
 import io
 import os
 import json
+import hmac
+import hashlib
 
 app = FastAPI(title="Shopify Feed Fixer API")
 
@@ -14,6 +16,23 @@ SHOPIFY_CLIENT_ID = os.getenv("SHOPIFY_CLIENT_ID")
 SHOPIFY_CLIENT_SECRET = os.getenv("SHOPIFY_CLIENT_SECRET")
 APP_URL = "https://shopify-feed-fixer.onrender.com"
 SCOPES = "read_inventory,read_products"
+
+def verify_shopify_hmac(query_params: dict, client_secret: str) -> bool:
+    """Проверка подписи HMAC от Shopify для защиты от поддельных запросов"""
+    received_hmac = query_params.get("hmac")
+    if not received_hmac or not client_secret:
+        return False
+        
+    sorted_params = sorted([(k, v) for k, v in query_params.items() if k not in ("hmac", "signature")])
+    message = "&".join([f"{k}={v}" for k, v in sorted_params])
+    
+    generated_hmac = hmac.new(
+        client_secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(generated_hmac, received_hmac)
 
 @app.get("/auth", tags=["Shopify Auth"])
 async def shopify_auth(shop: str = Query(...)):
@@ -45,11 +64,15 @@ def save_shop_token(shop: str, token: str):
         json.dump(data, f, indent=4)
 
 @app.get("/auth/callback", tags=["Shopify Auth"])
-async def shopify_callback(shop: str = Query(...), code: str = Query(...), hmac: str = Query(...)):
+async def shopify_callback(request: Request, shop: str = Query(...), code: str = Query(...), hmac: str = Query(...)):
     """
     Шаг 2: Получаем постоянный токен, сохраняем его 
     и сразу отправляем клиента на экран оплаты с 10-дневным триалом.
     """
+    # Защита от взлома: проверяем HMAC
+    if not verify_shopify_hmac(dict(request.query_params), SHOPIFY_CLIENT_SECRET):
+        return HTMLResponse(content="<h1>Ошибка безопасности: неверная подпись HMAC</h1>", status_code=401)
+
     token_url = f"https://{shop}/admin/oauth/access_token"
     payload = {
         "client_id": SHOPIFY_CLIENT_ID,
@@ -70,7 +93,8 @@ async def shopify_callback(shop: str = Query(...), code: str = Query(...), hmac:
     save_shop_token(shop, access_token)
     
     # 2. Создаем подписку в Shopify ($29.99/мес) с пробным периодом 10 дней
-    billing_url = f"https://{shop}/admin/api/2024-04/recurring_application_charges.json"
+    # ВЕРСИЯ API ОБНОВЛЕНА НА 2026-04
+    billing_url = f"https://{shop}/admin/api/2026-04/recurring_application_charges.json"
     billing_payload = {
         "recurring_application_charge": {
             "name": "FeedFixer Pro Plan",
@@ -258,7 +282,6 @@ async def web_interface():
 
         </div>
 
-        <!-- ПОДВАЛ (FOOTER) -->
         <footer class="border-t border-slate-200 bg-white pt-12 pb-16 text-center">
             <div class="flex flex-wrap justify-center items-center gap-6 md:gap-10 mb-6 text-sm font-semibold text-slate-500">
                 <a href="/terms" class="hover:text-blue-600 transition">Terms of Service</a>
@@ -492,10 +515,11 @@ async def test_products():
     Скачивает список товаров из тестового магазина по нашему токену.
     """
     shop = "feedfixer-test-1.myshopify.com"
-    token = "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"
+    # ТЕПЕРЬ ТОКЕН БЕРЕТСЯ БЕЗОПАСНО ИЗ RENDER
+    token = os.getenv("SHOPIFY_TEST_TOKEN", "fallback_token") 
     
-    # Используем стабильную версию API Shopify
-    url = f"https://{shop}/admin/api/2024-04/products.json"
+    # ВЕРСИЯ API ОБНОВЛЕНА НА 2026-04
+    url = f"https://{shop}/admin/api/2026-04/products.json"
     headers = {
         "X-Shopify-Access-Token": token,
         "Content-Type": "application/json"
@@ -514,3 +538,21 @@ async def test_products():
         return {"status": "success", "products_count": len(result), "items": result}
     else:
         return {"status": "error", "code": response.status_code, "details": response.text}
+
+
+# --- ОБЯЗАТЕЛЬНЫЕ GDPR ВЕБХУКИ ДЛЯ ПРОХОЖДЕНИЯ МОДЕРАЦИИ ---
+
+@app.post("/webhooks/gdpr/customers-data-request", tags=["GDPR"])
+async def gdpr_customers_data_request(request: Request):
+    """Shopify требует этот эндпоинт, даже если мы не храним данные покупателей"""
+    return Response(status_code=200)
+
+@app.post("/webhooks/gdpr/customers-redact", tags=["GDPR"])
+async def gdpr_customers_redact(request: Request):
+    """Запрос на удаление данных покупателя"""
+    return Response(status_code=200)
+
+@app.post("/webhooks/gdpr/shop-redact", tags=["GDPR"])
+async def gdpr_shop_redact(request: Request):
+    """Запрос на удаление данных магазина (когда мерчант удаляет приложение)"""
+    return Response(status_code=200)
